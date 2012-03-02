@@ -1,0 +1,57 @@
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+
+/*
+ * To change this template, choose Tools | Templates
+ * and open the template in the editor.
+ */
+
+/**
+ *
+ * @author Jaspreet
+ */
+
+//import video.*;
+//import audio.*;
+
+public class VideoSummarizer {
+
+    /**
+     * @param args the command line arguments
+     */
+    
+    //The frameHashMap is scoring the different scores on each metric for eevery frame in the video
+    public static HashMap <Integer, ArrayList<Double>> frameHashMap = new HashMap<Integer,ArrayList<Double>>();
+    
+    //The shotHashMap is scoring the shot number and an array list which has keyframe numbers and then finally the overall score number
+    public static HashMap <Integer, ArrayList<Double>> shotHashMap = new HashMap<Integer,ArrayList<Double>>();
+    
+    
+    public static void main(String[] args) throws IOException, InterruptedException, VideoException {
+        // TODO code application logic here
+        
+        String audiofileName = args[0];
+        String videofileName = args[1];
+    
+        VideoFile videofile = new VideoFile(videofileName);
+        
+        videofile.AnalyzeRGBVideoFile();
+    
+        //AudioFile audiofile = new AudioFile(audiofileName);
+        
+        //audiofile.readAudioData();
+        
+        //Printing Scores
+        
+        //for (int i=0; i<100 ;i++) {
+            //ArrayList<Double> temp = frameHashMap.get(i) ;
+            
+            
+            //System.out.println(" the hashmap has entropy - " + temp);
+        //}
+               
+    }
+}

@@ -1,0 +1,77 @@
+
+import java.io.File;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+
+/*
+ * To change this template, choose Tools | Templates
+ * and open the template in the editor.
+ */
+
+
+/**
+ *
+ * @author Jaspreet
+ */
+public class AudioFile {
+
+    private static String filepath;
+    
+    AudioFile(String filename) {
+    
+        this.filepath = filename;
+
+    }
+
+    
+    public static void readAudioData(){
+    int totalFramesRead = 0;
+	File fileIn = new File(filepath);
+        System.out.println("file length is "+fileIn.length());
+	// somePathName is a pre-existing string whose value was
+	// based on a user selection.
+	try {
+	  AudioInputStream audioInputStream = 
+		AudioSystem.getAudioInputStream(fileIn);
+	  int bytesPerFrame = 
+		audioInputStream.getFormat().getFrameSize();
+                System.out.println("bytesPerFrame is "+bytesPerFrame);
+                System.out.println("frame length is "+audioInputStream.getFrameLength());
+                //Frames per sec in vdeo = 24 : Here it is 22050 ; So corresponding point frame number is 22050/24
+                int corrFrameInAudio = (int) (audioInputStream.getFormat().getFrameRate() / VideoFile.VIDEO_FPS);
+                System.out.println("frame rate is "+audioInputStream.getFormat().getFrameRate());
+                System.out.println("getSampleSizeInBits is "+audioInputStream.getFormat().getSampleSizeInBits());
+                System.out.println("channels are "+audioInputStream.getFormat().getChannels());
+                System.out.println("encoding is "+audioInputStream.getFormat().getEncoding());
+                //System.out.println("property bitrate is "+audioInputStream.getFormat().getProperty(bitrate));
+		if (bytesPerFrame == AudioSystem.NOT_SPECIFIED) {
+		// some audio formats may have unspecified frame size
+		// in that case we may read any amount of bytes
+		bytesPerFrame = 1;
+	  } 
+	  // Set an arbitrary buffer size of 1024 frames.
+	  int numBytes = 1024 * bytesPerFrame; 
+	  byte[] audioBytes = new byte[numBytes];
+	  try {
+		int numBytesRead = 0;
+		int numFramesRead = 0;
+		// Try to read numBytes bytes from the file.
+		while ((numBytesRead = 
+		  audioInputStream.read(audioBytes)) != -1) {
+		  // Calculate the number of frames actually read.
+		  numFramesRead = numBytesRead / bytesPerFrame;
+		  totalFramesRead += numFramesRead;
+		  // Here, do something useful with the audio data that's 
+		  // now in the audioBytes array...
+		}
+                  System.out.println("totalFramesRead "+totalFramesRead);
+	  } catch (Exception ex) { 
+		// Handle the error...
+	  }
+	} catch (Exception e) {
+	  // Handle the error...
+	}
+
+    }
+
+}

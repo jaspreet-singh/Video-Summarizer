@@ -1,0 +1,342 @@
+/*
+ * To change this template, choose Tools | Templates
+ * and open the template in the editor.
+ */
+
+
+import java.awt.BorderLayout;
+import java.awt.image.BufferedImage;
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.util.ArrayList;
+import javax.swing.ImageIcon;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+
+
+/**
+ *
+ * @author Jaspreet
+ */
+public class VideoFile {
+ 
+    
+    private String videoFilename;
+    private long fileLength;
+    
+    public static final int WIDTH = 320;
+    public static final int HEIGHT = 240;
+    
+    //Each frame will give us atleast these many seconds of corresponding audio and video
+    public static final int SEC_PER_FRAME = 5; 
+    public static final int VIDEO_FPS = 24;
+    
+    
+    private static final long FRAMESIZE = WIDTH*HEIGHT*(24/8);//size of each frame in bytes
+
+    private static int frameNumber = 0; 
+    private static int shotNumber = 0;     
+    private static final double sameSceneThreshold = 0.10;
+    private static final double newSceneThreshold = 0.25;
+    private ArrayList<Double> frameMetrics = new ArrayList<Double>();        
+    private ArrayList<Double> shotDetails = new ArrayList<Double>();
+    
+    
+    private static double entropy = 1.0;
+    private static double lastKeyEntropy = 1.0;
+    
+    
+    private static double shotEntropyScore = 0.0;
+        
+
+    
+    /*
+    private JFrame outFrame;
+    private JLabel label;
+
+    private BufferedImage outImg = new BufferedImage (WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
+    *
+    * 
+    */
+    
+    public VideoFile(String filename) {
+        
+        this.videoFilename = filename;
+        File file = new File(filename);
+        this.fileLength = file.length(); 
+        
+    }
+    
+        public void getFrameInfo (byte bytes[]) throws InterruptedException
+    {
+        
+        double rr = 0.0 ;
+        double gg = 0.0 ;
+        double bb = 0.0 ;
+        double yAtPixel[][] = new double [WIDTH][HEIGHT];
+        
+        
+        int ind = 0;
+		for(int y = 0; y < HEIGHT; y++)
+                {
+	
+			for(int x = 0; x < WIDTH; x++)
+                        {
+		 
+				byte a = 0;//This is opacity value
+				byte r = bytes[ind];
+				byte g = bytes[ind+HEIGHT*WIDTH];
+				byte b = bytes[ind+HEIGHT*WIDTH*2]; 
+				
+                                rr = (double) (r & 0xff);
+                                gg = (double) (g & 0xff);
+                                bb = (double) (b & 0xff);
+                                
+      				int pix = (0xff000000) | ((r & 0xff) << 16) | ((g & 0xff) << 8) | (b & 0xff);//Set transparency factor as zero
+                               
+                                //outImg.setRGB(x,y,pix);
+                                                                                         
+				ind++;
+                                
+                                yAtPixel[x][y] = 0.299*rr + 0.587*gg + 0.114*bb; 
+                                
+                                if (yAtPixel[x][y] < 0.0) yAtPixel[x][y] = 0.0;
+                                
+                                if (yAtPixel[x][y] > 255.0) yAtPixel[x][y] = 255.0;
+                                
+                                //System.out.println("yAtPixel["+x+"]["+y+"] is "+yAtPixel[x][y]);
+
+                        }
+                }
+            
+               //ColorHistogram yHistogram = new ColorHistogram();
+                                
+               //double shotScore = 1.0;
+                
+               entropy = ColorHistogram.ComputeScore(yAtPixel);
+
+               //System.out.println("frame number is "+frameNumber);
+               
+               if (frameNumber == 0) {
+                    //System.out.print("first frame is this ");
+                    lastKeyEntropy = entropy;
+                    //shotNumber++;// We start with a shot number = 0
+                    
+                   shotEntropyScore+=entropy; 
+                   
+                   //We are starting a new shot so we  add this frame Number
+                   shotDetails.clear();
+                   shotDetails.add((double)frameNumber);
+                    
+                    VideoSummarizer.shotHashMap.put(shotNumber, shotDetails);
+                 
+                    //System.out.println("this got data ");
+               }
+               
+                //If we have the first frame or cross a threshold of our video, we shall create a new shot
+                    
+                 //if current frame's entropy value is ,more than newSceneThreshold than we add more shots
+                
+                if ((Math.abs(entropy-lastKeyEntropy)) > newSceneThreshold*lastKeyEntropy) 
+                {
+  
+                    shotEntropyScore+= entropy; 
+
+                    //System.out.println("lastKeyEntropy was "+lastKeyEntropy+" and now we have "+entropy);
+                    
+                    lastKeyEntropy = entropy;
+                    shotDetails.add(shotEntropyScore);//Before we clear the shor details we must put the final score into it
+                    VideoSummarizer.shotHashMap.put(shotNumber, shotDetails);
+                    //System.out.println("Shot #"+shotNumber+" finally had --"+(VideoSummarizer.shotHashMap.get(shotNumber).size()-1)+"-- keyframes :Overall frame number is"+frameNumber);    
+                    
+                    //Tests
+                        ArrayList<Double> shotData = new ArrayList<Double>();                    
+                        shotData = VideoSummarizer.shotHashMap.get(shotNumber);
+                        System.out.println("Shot #"+shotNumber+" got data - "+shotData);
+                    
+                    shotNumber++; 
+                    shotEntropyScore = 0.0;
+
+                    //We are starting a new shot so we clear all previous data and add this frame Number
+                    shotDetails.clear();
+                    shotDetails.add((double)frameNumber);
+                
+                    VideoSummarizer.shotHashMap.put(shotNumber, shotDetails);
+
+                } 
+                //if current frame's entropy value is ,more than sameSceneThreshold than we add more keyframes to the list
+                else if ((Math.abs(entropy-lastKeyEntropy)) > sameSceneThreshold*lastKeyEntropy) 
+                {
+                    shotEntropyScore+= entropy; 
+
+                    shotDetails.add((double)frameNumber);
+                    VideoSummarizer.shotHashMap.put(shotNumber, shotDetails);
+                    //System.out.println("Shot #"+shotNumber+" has --"+VideoSummarizer.shotHashMap.get(shotNumber).size()+"-- keyframes so far: Overall frame number is "+frameNumber);    
+                    
+                    lastKeyEntropy = entropy;
+                    
+                }
+                
+               frameMetrics.add(entropy);
+               VideoSummarizer.frameHashMap.put(frameNumber, frameMetrics);
+               frameNumber++ ;
+               frameMetrics.clear();
+    
+    }
+
+    
+
+    public void AnalyzeRGBVideoFile() throws IOException, VideoException, InterruptedException {
+       
+    	FileInputStream inputStream;
+	try {
+	    inputStream = new FileInputStream(this.videoFilename);
+            BufferedInputStream bufferedVideoStream = new BufferedInputStream(inputStream);
+            
+	    
+            int len = (int) FRAMESIZE;
+	    byte[] bytes = new byte[(int)len];
+
+            int pixelAtFrame, count = 0;
+
+            //System.out.println("this.fileLength "+this.fileLength);
+            //for (long stream=0;stream<this.fileLength; stream+= this.FRAMESIZE) {
+            for (long stream=0;stream<(this.FRAMESIZE)*1200; stream+= this.FRAMESIZE){ //For testing
+                
+	    int offset = 0;
+            int numRead = 0;
+            
+            bufferedVideoStream.read(bytes);
+            
+             getFrameInfo(bytes);
+            
+            //System.out.println("offset is "+offset+" and numRead is "+numRead);
+                count++;
+                //System.out.println("Displaying for "+ (count)+" time ");
+        
+                
+            }
+            
+            //System.out.println("Total frames = "+(frameNumber+1)+" were divided into total shots = "+(shotNumber+1));
+            System.out.println("Total frames = "+(VideoSummarizer.frameHashMap.size())+" were divided into total shots = "+VideoSummarizer.shotHashMap.size());
+        
+            
+            /*
+             * We now have scores for all our frames and have filled 
+             * up the datastructures for frame Info and shot info
+             * 
+             * Now, we allow SEC_PER_FRAME seconds to each keyframe
+             * 
+             */
+              int keyFrameNumber = 1;
+              int nextKeyFrameNumber = 2;
+              final int frameTime = SEC_PER_FRAME*VIDEO_FPS; //these many following frames from each key frame
+
+              double totalDisplayTime = 0.0;
+              double timeForShot = 0.0;
+              
+              
+              for (int i=0; i<VideoSummarizer.shotHashMap.size(); i++) {
+               //Shot numbers start from 0
+               
+               /*
+                * We are inside a shot
+                * This has key frames = { VideoSummarizer.shotHashMap.size()-1 } 
+                */
+               
+                  timeForShot = 0.0;
+                                
+              //retrieve key frame number
+              ArrayList<Double> thisShot = new ArrayList<Double>();
+              ArrayList<Double> nextShot = new ArrayList<Double>();
+
+              thisShot = VideoSummarizer.shotHashMap.get(0);
+              
+              System.out.println("shot #"+i+" has info in thisShot as "+thisShot);    
+              
+              if (i < (VideoSummarizer.shotHashMap.size()-1)) //this isnt last shot
+              {
+                  //System.out.println(nextShot);
+                      nextShot = VideoSummarizer.shotHashMap.get(i+1); 
+                  
+                  for (int j=0; j < (thisShot.size()-1); j++){//last added value was entropy so we dont consider that
+
+                  //the key frame numbers are stored in our arraylist
+                  keyFrameNumber = (int) (Math.round(thisShot.get(j)));
+    
+                  if (j < (thisShot.size()- 2))
+                  {
+                      //we have key frames left in this shot
+                      nextKeyFrameNumber = (int) (Math.round(thisShot.get(j+1)));
+                  }
+                   else
+                  {
+
+                      nextKeyFrameNumber = (int) (Math.round(nextShot.get(0))); // this is last keyframe of this shot, we seek the first frame of next shot
+                  }
+                  
+                  if ((nextKeyFrameNumber - keyFrameNumber) > frameTime) 
+                  {
+                      timeForShot+= (double)frameTime;//we show this frame and following frames for a total time = frameTime secs.
+                      System.out.println("inside shot #"+i+": time increaased by "+frameTime+" secs");
+                      System.out.println("\t this is frame #"+keyFrameNumber+" and next kyFrame is: "+nextKeyFrameNumber);
+                  }
+                  else
+                  {
+                      timeForShot+= (double)(nextKeyFrameNumber - keyFrameNumber)/(double)VIDEO_FPS;
+                      System.out.println("inside shot #"+i+": time increaased by "+((double)(nextKeyFrameNumber - keyFrameNumber)/(double)VIDEO_FPS)+" secs");
+                      System.out.println("\t this is frame #"+keyFrameNumber+" and next kyFrame is: "+nextKeyFrameNumber);
+                  }
+                  //nextShot.clear();
+                 } 
+                                    
+              }
+              else//this is last shot
+              {
+                  for (int j=0; j < (thisShot.size()-1); j++){
+                      
+                  System.out.println("this shot has "+thisShot);    
+
+
+                  //the key frame numbers are stored in our arraylist
+                  keyFrameNumber = (int) (Math.round(thisShot.get(j)));
+    
+                  
+                  if (j!= (thisShot.size()- 2))
+                      nextKeyFrameNumber = (int) (Math.round(thisShot.get(j+1)));//we have key frames left in this shot
+                  else
+                      nextKeyFrameNumber = (frameNumber+1); // this is last frame of last shot so we have next keyframeNumber  1  more than total frames in video
+
+                  
+                  if ((nextKeyFrameNumber - keyFrameNumber) > frameTime)
+                  {
+                      timeForShot+= (double)frameTime;//time from this is frameTime
+                      System.out.println("inside shot #"+i+": time increaased by "+frameTime+" secs");
+                      System.out.println("\t this is frame #"+keyFrameNumber+" and next kyFrame is: "+nextKeyFrameNumber);
+                  }
+                  else
+                  {
+                      timeForShot+= (double)(nextKeyFrameNumber - keyFrameNumber)/(double)VIDEO_FPS;
+                      System.out.println("inside shot #"+i+": time increaased by "+((double)(nextKeyFrameNumber - keyFrameNumber)/(double)VIDEO_FPS)+"secs");
+                      System.out.println("\t this is frame #"+keyFrameNumber+" and next kyFrame is: "+nextKeyFrameNumber);
+                  }
+                 } 
+                  
+              }
+              
+              totalDisplayTime+=timeForShot;
+           }
+            
+              System.out.println("totalDisplayTime = "+totalDisplayTime);
+              
+	} catch (FileNotFoundException e) {
+	    e.printStackTrace();
+	    return;
+	} 
+ 
+    }
+            
+}
