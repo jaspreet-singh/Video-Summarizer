@@ -1,0 +1,8 @@
+The objective of the project was to develop a tool to summarize a video based on criteria such as audio amplitude, color changes and motion detection. Java has been used as the programming language. The Java program takes 3 arguments from the command line:  videoInput.rgb audioInput.wav percentage
+
+videoInput.rgb is a 24fps video file in raw rgb format and resolution = 320x240
+audioInput.wav is an audio file
+percentage is a number between 0 and 1 specifying the reduction of size in rgb file after summarization
+The program produces two output files videoOutput.rgb and outputAudio.wav, containing video and audio.
+
+
